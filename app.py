@@ -34,7 +34,7 @@ phone_clean = re.sub(r"\D", "", phone_raw)
 
 # จัดฟอร์แมตเบอร์โทรศัพท์เมื่อพิมพ์ครบ 10 หลัก
 if len(phone_clean) == 10:
-    phone = re.sub(r"(\d{3})(\d{3})(\d{4})", r"\1-\2-\3", phone_clean)
+    phone = re.sub(r"(\d{2})(\d{4})(\d{4})", r"\1-\2-\3", phone_clean)
     st.caption(f"📱 เบอร์โทรศัพท์ที่บันทึก: **{phone}**")
 else:
     phone = phone_clean  # กรณีพิมพ์ยังไม่ครบ 10 หลัก ให้เก็บค่าเดิมไว้ก่อน
