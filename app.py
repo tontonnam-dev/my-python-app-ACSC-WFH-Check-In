@@ -2,6 +2,7 @@ import datetime
 import pandas as pd
 import pytz  # ไลบรารีสำหรับจัดการ Time Zone
 import streamlit as st
+import re
 from streamlit_gsheets import GSheetsConnection
 
 # ตั้งค่าหน้าตาของแอป
@@ -23,7 +24,22 @@ rank_name = st.text_input(
 )
 position = st.text_input("ตำแหน่ง", placeholder="เช่น ผบ.กอง, รอง ผอ.กอง, อจ.กอง, หน.ผธก. เป็นต้น")
 department = st.text_input("สังกัด", placeholder="เช่น กกศ., กทสธ., กนท., ผธก., ผวผ.")
-phone = st.text_input("
+# รับค่าเบอร์โทรศัพท์ (จำกัดไม่เกิน 10 ตัวอักษร)
+phone_raw = st.text_input(
+    "หมายเลขโทรศัพท์ที่ติดต่อได้", placeholder="เช่น 0812345678", max_chars=10
+)
+
+# ลบตัวอักษรที่ไม่ใช่ตัวเลขออก
+phone_clean = re.sub(r"\D", "", phone_raw)
+
+# จัดฟอร์แมตเบอร์โทรศัพท์เมื่อพิมพ์ครบ 10 หลัก
+if len(phone_clean) == 10:
+    phone = re.sub(r"(\d{3})(\d{3})(\d{4})", r"\1-\2-\3", phone_clean)
+    st.caption(f"📱 เบอร์โทรศัพท์ที่บันทึก: **{phone}**")
+else:
+    phone = phone_clean  # กรณีพิมพ์ยังไม่ครบ 10 หลัก ให้เก็บค่าเดิมไว้ก่อน
+    if phone_clean:
+        st.caption("⚠️ กรุณากรอกตัวเลขให้ครบ 10 หลัก")(
     "หมายเลขโทรศัพท์ที่ติดต่อได้", placeholder="เช่น 0812345678"
 )
 
