@@ -10,7 +10,7 @@ st.set_page_config(
     page_title="ระบบบันทึกข้อมูลบุคลากร.", page_icon="📝", layout="centered"
 )
 
-st.title("📝 ะบบบันทึกข้อมูลผู้ที่ปฏิบัติงานที่บ้าน (Work From Home) รร.สธ.ทอ.ยศ.ทอ.")
+st.title("📝 ระบบบันทึกข้อมูลผู้ที่ปฏิบัติงานที่บ้าน (Work From Home) รร.สธ.ทอ.ยศ.ทอ.")
 st.caption("เชื่อมต่อข้อมูลตรงกับ Google Sheets (เวลาประเทศไทย UTC+7)")
 
 # เชื่อมต่อกับ Google Sheets
