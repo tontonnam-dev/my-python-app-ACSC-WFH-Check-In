@@ -17,39 +17,7 @@ st.set_page_config(
 # ---------------------------------------------------------
 # 2. ตั้งค่ารูปพื้นหลัง (จาก Google Drive) และปรับแต่ง CSS
 # ---------------------------------------------------------
-DRIVE_FILE_ID = "1LKtvAujqQpnoZ8LT87uXGEkwmcKJWJBG"
 
-# ใช้ URL รูปแบบ Thumbnail (ขนาดใหญ่ w1920) สำหรับใช้เป็นรูปพื้นหลัง
-BG_IMAGE_URL = f"https://drive.google.com/thumbnail?id={DRIVE_FILE_ID}&sz=w1920"
-
-custom_css = f"""
-<style>
-/* ตั้งค่ารูปพื้นหลังแบบเต็มจอ */
-[data-testid="stAppViewContainer"] {{
-    background-image: url("{BG_IMAGE_URL}");
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-    background-attachment: fixed;
-}}
-
-/* ทำแถบ Header ด้านบนให้ใส */
-[data-testid="stHeader"] {{
-    background-color: rgba(0, 0, 0, 0);
-}}
-
-/* ปรับแต่งกล่องเนื้อหาหลักให้เป็นสีขาวโปร่งแสง */
-.main .block-container {{
-    background-color: rgba(255, 255, 255, 0.92);
-    padding: 2.5rem 2rem;
-    border-radius: 16px;
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-}}
-</style>
-"""
-st.markdown(custom_css, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
 # 3. ส่วนหัวเรื่อง
