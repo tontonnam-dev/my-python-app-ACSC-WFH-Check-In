@@ -21,8 +21,8 @@ st.subheader("1. กรอกข้อมูลส่วนตัว")
 rank_name = st.text_input(
     "ยศ ชื่อ - สกุล", placeholder="เช่น ร.อ. สมชาย ใจดี"
 )
-position = st.text_input("ตำแหน่ง", placeholder="เช่น ผบ.ร้อย.")
-department = st.text_input("สังกัด", placeholder="เช่น นทพ.")
+position = st.text_input("ตำแหน่ง", placeholder="เช่น ผบ.กอง, รอง ผอ.กอง, อจ.กอง, หน.ผธก. เป็นต้น")
+department = st.text_input("สังกัด", placeholder="เช่น กกศ., กทสธ., กนท., ผธก., ผวผ.")
 phone = st.text_input(
     "หมายเลขโทรศัพท์ที่ติดต่อได้", placeholder="เช่น 0812345678"
 )
@@ -42,7 +42,7 @@ if rank_name or position or department or phone:
     """
     )
 else:
-    st.write("กรุณากรอกข้อมูลในฟอร์มข้างต้น")
+    st.write("กรุณากรอกข้อมูลและตรวจสอบความถูกต้องก่อนกดยืนยัน")
 
 # ปุ่มกด Submit ยืนยันบันทึกข้อมูล
 if st.button("🚀 ยืนยันส่งข้อมูล (Submit)", type="primary"):
