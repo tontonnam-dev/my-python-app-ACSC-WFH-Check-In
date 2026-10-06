@@ -23,7 +23,7 @@ rank_name = st.text_input(
 )
 position = st.text_input("ตำแหน่ง", placeholder="เช่น ผบ.กอง, รอง ผอ.กอง, อจ.กอง, หน.ผธก. เป็นต้น")
 department = st.text_input("สังกัด", placeholder="เช่น กกศ., กทสธ., กนท., ผธก., ผวผ.")
-phone = st.text_input(
+phone = st.text_input('
     "หมายเลขโทรศัพท์ที่ติดต่อได้", placeholder="เช่น 0812345678"
 )
 
