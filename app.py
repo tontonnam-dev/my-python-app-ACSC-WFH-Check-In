@@ -12,7 +12,7 @@ st.set_page_config(
 # ==========================================
 # 🖼️ ตั้งค่าโลโก้ (ใส่ชื่อไฟล์ หรือ URL รูปภาพ)
 # ==========================================
-LOGO_URL_OR_PATH = "logo.png"  # หรือ "https://your-website.com/logo.png"
+LOGO_URL_OR_PATH = "https://drive.google.com/file/d/1LKtvAujqQpnoZ8LT87uXGEkwmcKJWJBG/view?usp=drive_link"  # หรือ "https://your-website.com/logo.png"
 
 # แสดงผลโลโก้และชื่อแอป
 col_logo, col_title = st.columns([1, 4])
