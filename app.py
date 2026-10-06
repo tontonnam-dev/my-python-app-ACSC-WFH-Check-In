@@ -1,26 +1,19 @@
 import datetime
 import pandas as pd
+import pytz  # ไลบรารีสำหรับจัดการ Time Zone
 import streamlit as st
+from streamlit_gsheets import GSheetsConnection
 
-# ตั้งค่าหน้าตาของแอปสำหรับรองรับมือถือ
+# ตั้งค่าหน้าตาของแอป
 st.set_page_config(
     page_title="ระบบบันทึกข้อมูลบุคลากร", page_icon="📝", layout="centered"
 )
 
 st.title("📝 ระบบบันทึกข้อมูลบุคลากร")
-st.caption("กรอกข้อมูลเพื่อบันทึกเข้าระบบออนไลน์")
+st.caption("เชื่อมต่อข้อมูลตรงกับ Google Sheets (เวลาประเทศไทย UTC+7)")
 
-# สร้าง/โหลด Session State สำหรับจำลอง Database (หรือเชื่อม Google Sheets)
-if "database" not in st.session_state:
-    st.session_state.database = pd.DataFrame(
-        columns=[
-            "วัน-เวลา บันทึก",
-            "ยศ ชื่อ - สกุล",
-            "ตำแหน่ง",
-            "สังกัด",
-            "เบอร์โทรศัพท์",
-        ]
-    )
+# เชื่อมต่อกับ Google Sheets
+conn = st.connection("gsheets", type=GSheetsConnection)
 
 # --- ส่วนที่ 1: ฟอร์มกรอกข้อมูล ---
 st.subheader("1. กรอกข้อมูลส่วนตัว")
@@ -36,7 +29,7 @@ phone = st.text_input(
 
 st.divider()
 
-# --- ส่วนที่ 2: ตรวจสอบข้อมูลก่อนส่ง (Confirm Step) ---
+# --- ส่วนที่ 2: ตรวจสอบข้อมูลก่อนส่ง ---
 st.subheader("2. ตรวจสอบข้อมูลก่อนยืนยัน")
 
 if rank_name or position or department or phone:
@@ -53,50 +46,62 @@ else:
 
 # ปุ่มกด Submit ยืนยันบันทึกข้อมูล
 if st.button("🚀 ยืนยันส่งข้อมูล (Submit)", type="primary"):
-    # ตรวจสอบการกรอกข้อมูลให้ครบถ้วน
     if not (rank_name and position and department and phone):
         st.error("⚠️ กรุณากรอกข้อมูลให้ครบทุกช่องก่อนกดยืนยัน!")
     else:
-        # บันทึกเวลาอัตโนมัติ (Timestamp)
-        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        try:
+            # ดึงข้อมูลเดิมจาก Google Sheets
+            existing_data = conn.read(ttl=0)
 
-        # สร้าง Record ใหม่
-        new_data = {
-            "วัน-เวลา บันทึก": current_time,
-            "ยศ ชื่อ - สกุล": rank_name,
-            "ตำแหน่ง": position,
-            "สังกัด": department,
-            "เบอร์โทรศัพท์": phone,
-        }
+            # กำหนด Time Zone เป็น Asia/Bangkok (UTC+7)
+            tz_bangkok = pytz.timezone("Asia/Bangkok")
+            current_time = datetime.datetime.now(tz_bangkok).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
 
-        # บันทึกลงระบบ
-        st.session_state.database = pd.concat(
-            [st.session_state.database, pd.DataFrame([new_data])],
-            ignore_index=True,
-        )
+            # สร้างข้อมูลแถวใหม่
+            new_row = pd.DataFrame(
+                [
+                    {
+                        "timestamp": current_time,
+                        "rank_name": rank_name,
+                        "position": position,
+                        "department": department,
+                        "phone": phone,
+                    }
+                ]
+            )
 
-        st.success("✅ บันทึกข้อมูลสำเร็จเรียบร้อยแล้ว!")
-        st.balloons()
+            # รวมข้อมูลใหม่เข้ากับข้อมูลเดิม
+            updated_data = pd.concat(
+                [existing_data, new_row], ignore_index=True
+            )
+
+            # อัปเดตกลับไปยัง Google Sheets
+            conn.update(data=updated_data)
+
+            st.success(
+                f"✅ บันทึกข้อมูลเรียบร้อยแล้ว! (เวลาที่บันทึก: {current_time})"
+            )
+            st.balloons()
+
+        except Exception as e:
+            st.error(f"เกิดข้อผิดพลาดในการบันทึกข้อมูล: {e}")
 
 st.divider()
 
-# --- ส่วนที่ 3: สรุปข้อมูลแบบ Real-Time & ส่งออกเป็น Excel ---
-st.subheader("📊 รายงานข้อมูล Real-Time")
+# --- ส่วนที่ 3: สรุปข้อมูลแบบ Real-Time ---
+st.subheader("📊 รายงานข้อมูล Real-Time จาก Google Sheets")
 
-df = st.session_state.database
+try:
+    df = conn.read(ttl=0)
 
-# แสดงจำนวนข้อมูลทั้งหมด
-st.metric(label="จำนวนรายการบันทึกทั้งหมด", value=f"{len(df)} รายการ")
+    st.metric(label="จำนวนรายการบันทึกทั้งหมด", value=f"{len(df)} รายการ")
 
-if not df.empty:
-    # แสดงตารางข้อมูล Real-Time
-    st.dataframe(df, use_container_width=True)
+    if not df.empty:
+        st.dataframe(df, use_container_width=True)
+    else:
+        st.info("ยังไม่มีข้อมูลในระบบ")
 
-    # ปุ่มดาวน์โหลดไฟล์ Excel / CSV
-    csv_data = df.to_csv(index=False).encode("utf-8-sig")
-    st.download_button(
-        label="📥 ดาวน์โหลดข้อมูลเป็นไฟล์ Excel/CSV",
-        data=csv_data,
-        file_name=f"personnel_records_{datetime.datetime.now().strftime('%Y%m%d')}.csv",
-        mime="text/csv",
-    )
+except Exception as e:
+    st.warning("ไม่สามารถโหลดข้อมูล Real-time ได้ในขณะนี้")
