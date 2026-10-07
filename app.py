@@ -331,33 +331,18 @@ try:
     df = conn.read(ttl=0)
 
     if not df.empty:
-        filter_col1, filter_col2 = st.columns(2)
-        with filter_col1:
-            selected_filter_date = st.selectbox(
-                "กรองตามวันที่", options=["ทั้งหมด"] + date_options
-            )
-        with filter_col2:
-            selected_filter_shift = st.selectbox(
-                "กรองตามรอบ", options=["ทั้งหมด"] + shift_options
-            )
-
-        filtered_df = df.copy()
-        if selected_filter_date != "ทั้งหมด":
-            filtered_df = filtered_df[
-                filtered_df["record_date"] == selected_filter_date
-            ]
-        if selected_filter_shift != "ทั้งหมด":
-            filtered_df = filtered_df[
-                filtered_df["shift"] == selected_filter_shift
-            ]
-
+        # แสดงจำนวนรายการบันทึกรวมทั้งหมด
         st.metric(
-            label=f"จำนวนรายการบันทึก ({selected_filter_date} | {selected_filter_shift})",
-            value=f"{len(filtered_df)} รายการ",
+            label="จำนวนรายการบันทึกทั้งหมด",
+            value=f"{len(df)} รายการ",
         )
 
-        filtered_df.index = range(1, len(filtered_df) + 1)
-        st.dataframe(filtered_df, use_container_width=True)
+        # กำหนดลำดับแถวใหม่ให้เริ่มจาก 1
+        df_display = df.copy()
+        df_display.index = range(1, len(df_display) + 1)
+
+        # แสดงตารางข้อมูลทั้งหมดทันที
+        st.dataframe(df_display, use_container_width=True)
 
     else:
         st.info("ยังไม่มีข้อมูลในระบบ")
