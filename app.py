@@ -69,7 +69,7 @@ def send_discord_notify(
         st.error(f"❌ เกิดข้อผิดพลาดในการเชื่อมต่อ Discord: {e}")
 
 
-def render_submitted_report(conn, date_options, shift_options, dept_options):
+#def render_submitted_report(conn, date_options, shift_options, dept_options):
     """📌 [เพิ่มใหม่] ฟังก์ชันสำหรับแสดงรายงานผู้ที่มาลงทะเบียนปฏิบัติงาน"""
     st.subheader("📋 รายงานสรุปผู้ลงทะเบียนปฏิบัติงาน (Submitted Report)")
 
@@ -155,7 +155,7 @@ def render_submitted_report(conn, date_options, shift_options, dept_options):
                 st.error(f"เกิดข้อผิดพลาดในการดึงรายงาน: {e}")
 
 
-def render_pending_checker(conn, date_options, shift_options):
+#def render_pending_checker(conn, date_options, shift_options):
     """ฟังก์ชันดึงและตรวจสอบรายชื่อผู้ยังไม่ได้บันทึกข้อมูล (เปิดใช้งานแล้ว)"""
     st.subheader("🔍 ตรวจสอบรายชื่อผู้ที่ยังไม่ได้บันทึกข้อมูล (Pending Report)")
 
