@@ -12,7 +12,7 @@ from streamlit_gsheets import GSheetsConnection
 DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1557208748081283132/dwrf0Ah8EkESLkrDtZWnR7dZ6Geg0aAuj_S_72u-DmRJ9f0YVEmox-_3M-jjktSqSKSp"
 
 
-def send_discord_notify(rank_name, position, department, phone, timestamp):
+def send_discord_notify(record_date, shift, rank_name, position, department, phone, timestamp):
     """ฟังก์ชันส่งข้อความแจ้งเตือนเข้า Discord"""
     if (
         not DISCORD_WEBHOOK_URL
