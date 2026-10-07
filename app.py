@@ -24,9 +24,14 @@ def send_discord_notify(rank_name, position, department, phone, timestamp):
     payload = {
         "embeds": [
             {
-                "title": "📝 มีผู้บันทึกข้อมูล Work From Home ใหม่!",
-                "color": 3447003,  # สีน้ำเงิน (Decimal Color Code)
+                "title": f"📝 บันทึกข้อมูล WFH ({record_date} - {shift})",
+                "color": 3447003,
                 "fields": [
+                    {
+                        "name": "📅 วันที่ / รอบ",
+                        "value": f"{record_date} ({shift})",
+                        "inline": False,
+                    },
                     {
                         "name": "👤 ยศ ชื่อ - สกุล",
                         "value": rank_name,
@@ -36,7 +41,7 @@ def send_discord_notify(rank_name, position, department, phone, timestamp):
                     {"name": "🏢 สังกัด", "value": department, "inline": True},
                     {"name": "📞 เบอร์โทรศัพท์", "value": phone, "inline": True},
                     {
-                        "name": "🕒 เวลาบันทึก",
+                        "name": "🕒 เวลาบันทึกในระบบ",
                         "value": timestamp,
                         "inline": False,
                     },
@@ -49,7 +54,7 @@ def send_discord_notify(rank_name, position, department, phone, timestamp):
     try:
         requests.post(DISCORD_WEBHOOK_URL, json=payload, timeout=5)
     except Exception as e:
-        print(f"เกิดข้อผิดพลาดในการส่ง Discord Notification: {e}")
+        print(f"Error sending Discord notification: {e}")
 
 # ---------------------------------------------------------
 # 1. ตั้งค่าหน้าตาของแอป
