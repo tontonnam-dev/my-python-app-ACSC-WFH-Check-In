@@ -401,15 +401,15 @@ st.divider()
 #st.header("📊 ศูนย์รายงานและสรุปผล")
 
 # สร้าง แท็บ (Tabs) สำหรับแยกประเภทรายงานให้กดดูได้สะดวก
-tab1, tab2 = st.tabs([
+#tab1, tab2 = st.tabs([
     "📋 รายงานผู้ที่ลงทะเบียนแล้ว", 
     "🔍 ตรวจสอบผู้ยังไม่ได้ลงทะเบียน"
 ])
 
-with tab1:
+#with tab1:
     # เรียกใช้ฟังก์ชันดูรายงานผู้ปฏิบัติงาน
     #render_submitted_report(conn, date_options, shift_options, dept_options)
 
-with tab2:
+#with tab2:
     # เรียกใช้ฟังก์ชันตรวจสอบผู้ยังไม่ได้บันทึกข้อมูล
     #render_pending_checker(conn, date_options, shift_options)
