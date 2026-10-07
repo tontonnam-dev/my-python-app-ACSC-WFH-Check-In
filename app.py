@@ -356,5 +356,3 @@ def render_pending_checker(conn, date_options, shift_options):
 
             except Exception as e:
                 st.error(f"เกิดข้อผิดพลาดในการตรวจสอบรายชื่อ: {e}")
-except Exception as e:
-    st.error(f"เกิดข้อผิดพลาดในการตรวจสอบรายชื่อ: {e}")
