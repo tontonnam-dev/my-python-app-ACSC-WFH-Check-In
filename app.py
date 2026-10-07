@@ -1,4 +1,5 @@
 import datetime
+import io
 import re
 import pandas as pd
 import pytz
@@ -20,12 +21,10 @@ def send_discord_notify(
     record_date, shift, rank_name, position, department, phone, timestamp
 ):
     """ฟังก์ชันส่งข้อความแจ้งเตือนเข้า Discord พร้อมระบบแจ้งเตือนสถานะ"""
-    # 1. เช็กว่าตั้งค่า URL หรือยัง
     if not DISCORD_WEBHOOK_URL or DISCORD_WEBHOOK_URL.strip() == "":
         st.warning("⚠️ ยังไม่ได้กำหนด Discord Webhook URL")
         return
 
-    # จัดรูปแบบข้อความที่จะส่งไปยัง Discord
     payload = {
         "embeds": [
             {
@@ -59,7 +58,6 @@ def send_discord_notify(
     try:
         response = requests.post(DISCORD_WEBHOOK_URL, json=payload, timeout=5)
 
-        # ตรวจสอบว่า Discord ได้รับข้อความหรือไม่
         if response.status_code in [200, 204]:
             st.toast("🔔 ส่งการแจ้งเตือนเข้า Discord เรียบร้อยแล้ว!", icon="💬")
         else:
@@ -71,9 +69,95 @@ def send_discord_notify(
         st.error(f"❌ เกิดข้อผิดพลาดในการเชื่อมต่อ Discord: {e}")
 
 
-#def render_pending_checker(conn, date_options, shift_options):
-    """ฟังก์ชันแยกสำหรับดึงและตรวจสอบรายชื่อผู้ยังไม่ได้บันทึกข้อมูล (ทำงานเมื่อกดปุ่มเท่านั้น)"""
-    st.subheader("🔍 ตรวจสอบรายชื่อผู้ที่ยังไม่ได้บันทึกข้อมูล (แยกตามรอบ)")
+def render_submitted_report(conn, date_options, shift_options, dept_options):
+    """📌 [เพิ่มใหม่] ฟังก์ชันสำหรับแสดงรายงานผู้ที่มาลงทะเบียนปฏิบัติงาน"""
+    st.subheader("📋 รายงานสรุปผู้ลงทะเบียนปฏิบัติงาน (Submitted Report)")
+
+    # ตัวกรองสำหรับค้นหารายงาน
+    f_col1, f_col2, f_col3 = st.columns(3)
+    with f_col1:
+        selected_date = st.selectbox(
+            "📅 กรองตามวันที่", options=["ทั้งหมด"] + date_options, key="rep_d"
+        )
+    with f_col2:
+        selected_shift = st.selectbox(
+            "⏰ กรองตามรอบ", options=["ทั้งหมด"] + shift_options, key="rep_s"
+        )
+    with f_col3:
+        valid_depts = [d for d in dept_options if d != "-- กรุณาเลือกสังกัด --"]
+        selected_dept = st.selectbox(
+            "🏢 กรองตามสังกัด", options=["ทั้งหมด"] + valid_depts, key="rep_dept"
+        )
+
+    if st.button("📊 ดึงรายงานผู้ปฏิบัติงาน", type="primary", key="btn_submitted"):
+        with st.spinner("กำลังประมวลผลรายงาน..."):
+            try:
+                df = conn.read(ttl=0)
+
+                if df.empty:
+                    st.info("ยังไม่มีข้อมูลการบันทึกในระบบ")
+                    return
+
+                # กรองข้อมูลตามเงื่อนไขที่เลือก
+                filtered_df = df.copy()
+
+                if selected_date != "ทั้งหมด" and "record_date" in filtered_df.columns:
+                    filtered_df = filtered_df[filtered_df["record_date"] == selected_date]
+
+                if selected_shift != "ทั้งหมด" and "shift" in filtered_df.columns:
+                    filtered_df = filtered_df[filtered_df["shift"] == selected_shift]
+
+                if selected_dept != "ทั้งหมด" and "department" in filtered_df.columns:
+                    filtered_df = filtered_df[filtered_df["department"] == selected_dept]
+
+                # แสดงสรุป Metric
+                m_col1, m_col2, m_col3 = st.columns(3)
+                m_col1.metric("จำนวนรายการทั้งหมด", f"{len(df)} รายการ")
+                m_col2.metric("ตรงตามเงื่อนไข", f"{len(filtered_df)} รายการ")
+                
+                if "rank_name" in filtered_df.columns:
+                    unique_persons = filtered_df["rank_name"].dropna().nunique()
+                    m_col3.metric("จำนวนบุคคล (Unique)", f"{unique_persons} คน")
+
+                st.write("---")
+
+                if not filtered_df.empty:
+                    # จัดรูปแบบตาราง
+                    df_display = filtered_df.copy()
+                    df_display.index = range(1, len(df_display) + 1)
+                    
+                    # เปลี่ยนชื่อคอลัมน์ให้แสดงผลสวยงาม
+                    column_mapping = {
+                        "timestamp": "เวลาบันทึก",
+                        "record_date": "วันที่ปฏิบัติงาน",
+                        "shift": "รอบการบันทึก",
+                        "rank_name": "ยศ ชื่อ - สกุล",
+                        "position": "ตำแหน่ง",
+                        "department": "สังกัด",
+                        "phone": "เบอร์โทรศัพท์",
+                    }
+                    df_display = df_display.rename(columns=column_mapping)
+
+                    st.dataframe(df_display, use_container_width=True)
+
+                    # ปุ่มดาวน์โหลดไฟล์ CSV
+                    csv_data = df_display.to_csv(index=False).encode("utf-8-sig")
+                    st.download_button(
+                        label="📥 ดาวน์โหลดรายงาน (CSV)",
+                        data=csv_data,
+                        file_name=f"WFH_Report_{datetime.date.today()}.csv",
+                        mime="text/csv",
+                    )
+                else:
+                    st.warning("⚠️ ไม่พบข้อมูลที่ตรงกับเงื่อนไขการค้นหา")
+
+            except Exception as e:
+                st.error(f"เกิดข้อผิดพลาดในการดึงรายงาน: {e}")
+
+
+def render_pending_checker(conn, date_options, shift_options):
+    """ฟังก์ชันดึงและตรวจสอบรายชื่อผู้ยังไม่ได้บันทึกข้อมูล (เปิดใช้งานแล้ว)"""
+    st.subheader("🔍 ตรวจสอบรายชื่อผู้ที่ยังไม่ได้บันทึกข้อมูล (Pending Report)")
 
     chk_col1, chk_col2 = st.columns(2)
     with chk_col1:
@@ -85,10 +169,7 @@ def send_discord_notify(
             "เลือกรอบที่ต้องการตรวจ", options=shift_options, key="chk_s"
         )
 
-    # ---------------------------------------------------------
-    # ทำงานเฉพาะเมื่อกดปุ่ม "🔍 ตรวจสอบรายชื่อ" เท่านั้น
-    # ---------------------------------------------------------
-    if st.button("🔍 ตรวจสอบรายชื่อ", type="secondary"):
+    if st.button("🔍 ตรวจสอบรายชื่อค้างส่ง", type="secondary", key="btn_pending"):
         with st.spinner("กำลังดึงข้อมูลและประมวลผล..."):
             try:
                 # 1. ดึงข้อมูลรายชื่อ MasterList
@@ -191,31 +272,9 @@ st.caption("เชื่อมต่อข้อมูลตรงกับ Goog
 # เชื่อมต่อกับ Google Sheets
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# ---------------------------------------------------------
-# 3. ส่วนที่ 1: ฟอร์มกรอกข้อมูล
-# ---------------------------------------------------------
-st.subheader("1. กรอกข้อมูลส่วนตัวและเลือกรอบการปฏิบัติงาน")
-
-# --- เลือกวันที่และรอบการปฏิบัติงาน ---
-col_date, col_shift = st.columns(2)
-
-with col_date:
-    date_options = ["วันที่ 12 ต.ค.69", "วันที่ 14 ต.ค.69", "วันที่ 15 ต.ค.69"]
-    record_date = st.selectbox(
-        "📅 เลือกวันที่ปฏิบัติงานที่บ้าน", options=date_options
-    )
-
-with col_shift:
-    shift_options = ["รอบเช้า (08:00 - 08:15)", "รอบบ่าย (13:00 - 13:15)"]
-    shift = st.selectbox("⏰ เลือกรอบการบันทึก", options=shift_options)
-
-st.write("---")
-rank_name = st.text_input("ยศ ชื่อ - สกุล", placeholder="เช่น ร.อ. สมชาย ใจดี")
-position = st.text_input(
-    "ตำแหน่ง", placeholder="เช่น ผบ.กอง, รอง ผอ.กอง, อจ.กอง, หน.ผธก. เป็นต้น"
-)
-
-# --- ส่วนสังกัด ---
+# ตัวเลือกพื้นฐานสำหรับฟอร์มและรายงาน
+date_options = ["วันที่ 12 ต.ค.69", "วันที่ 14 ต.ค.69", "วันที่ 15 ต.ค.69"]
+shift_options = ["รอบเช้า (08:00 - 08:15)", "รอบบ่าย (13:00 - 13:15)"]
 dept_options = [
     "-- กรุณาเลือกสังกัด --",
     "กกศ.รร.สธ.ทอ.ยศ.ทอ.",
@@ -225,10 +284,29 @@ dept_options = [
     "ผวผ.รร.สธ.ทอ.ยศ.ทอ.",
 ]
 
+# ---------------------------------------------------------
+# 3. ส่วนฟอร์มบันทึกข้อมูล (Form Area)
+# ---------------------------------------------------------
+st.subheader("1. กรอกข้อมูลส่วนตัวและเลือกรอบการปฏิบัติงาน")
+
+col_date, col_shift = st.columns(2)
+with col_date:
+    record_date = st.selectbox(
+        "📅 เลือกวันที่ปฏิบัติงานที่บ้าน", options=date_options
+    )
+
+with col_shift:
+    shift = st.selectbox("⏰ เลือกรอบการบันทึก", options=shift_options)
+
+st.write("---")
+rank_name = st.text_input("ยศ ชื่อ - สกุล", placeholder="เช่น ร.อ. สมชาย ใจดี")
+position = st.text_input(
+    "ตำแหน่ง", placeholder="เช่น ผบ.กอง, รอง ผอ.กอง, อจ.กอง, หน.ผธก. เป็นต้น"
+)
+
 selected_dept = st.selectbox("สังกัด", options=dept_options)
 department = "" if selected_dept == "-- กรุณาเลือกสังกัด --" else selected_dept
 
-# รับค่าเบอร์โทรศัพท์
 phone_raw = st.text_input(
     "หมายเลขโทรศัพท์ที่ติดต่อได้", placeholder="เช่น 0812345678", max_chars=10
 )
@@ -246,7 +324,7 @@ else:
 st.divider()
 
 # ---------------------------------------------------------
-# 4. ส่วนที่ 2: ตรวจสอบข้อมูลก่อนส่ง & ปุ่มบันทึก
+# 4. ตรวจสอบข้อมูลก่อนส่ง & ปุ่มบันทึก
 # ---------------------------------------------------------
 st.subheader("2. ตรวจสอบข้อมูลก่อนยืนยัน")
 
@@ -264,7 +342,6 @@ if rank_name or position or department or phone:
 else:
     st.write("กรุณาตรวจสอบความถูกต้องของข้อมูลที่ท่านกรอกก่อนกดปุ่มยืนยัน")
 
-# ปุ่มกด Submit ยืนยันบันทึกข้อมูล
 if st.button("🚀 ยืนยันส่งข้อมูล (Submit)", type="primary"):
     if not (rank_name and position and department and phone):
         st.error(
@@ -274,16 +351,13 @@ if st.button("🚀 ยืนยันส่งข้อมูล (Submit)", type
         st.error("⚠️ กรุณากรอกหมายเลขโทรศัพท์ให้ถูกต้องครบ 10 หลัก!")
     else:
         try:
-            # ดึงข้อมูลเดิมจาก Google Sheets
             existing_data = conn.read(ttl=0)
 
-            # กำหนด Time Zone เป็น Asia/Bangkok (UTC+7)
             tz_bangkok = pytz.timezone("Asia/Bangkok")
             current_time = datetime.datetime.now(tz_bangkok).strftime(
                 "%Y-%m-%d %H:%M:%S"
             )
 
-            # บันทึกข้อมูล
             new_row = pd.DataFrame(
                 [
                     {
@@ -306,7 +380,6 @@ if st.button("🚀 ยืนยันส่งข้อมูล (Submit)", type
             )
             st.balloons()
 
-            # --- เรียกส่งข้อมูลไปยัง Discord ---
             send_discord_notify(
                 record_date,
                 shift,
@@ -323,36 +396,20 @@ if st.button("🚀 ยืนยันส่งข้อมูล (Submit)", type
 st.divider()
 
 # ---------------------------------------------------------
-# 5. ส่วนที่ 3: สรุปข้อมูลแบบ Real-Time
+# 5. ส่วนศูนย์รายงานข้อมูล (Report Center)
 # ---------------------------------------------------------
-st.subheader("📊 รายงานข้อมูลการบันทึก WFH")
+st.header("📊 ศูนย์รายงานและสรุปผล")
 
-try:
-    df = conn.read(ttl=0)
+# สร้าง แท็บ (Tabs) สำหรับแยกประเภทรายงานให้กดดูได้สะดวก
+tab1, tab2 = st.tabs([
+    "📋 รายงานผู้ที่ลงทะเบียนแล้ว", 
+    "🔍 ตรวจสอบผู้ยังไม่ได้ลงทะเบียน"
+])
 
-    if not df.empty:
-        # แสดงจำนวนรายการบันทึกรวมทั้งหมด
-        st.metric(
-            label="จำนวนรายการบันทึกทั้งหมด",
-            value=f"{len(df)} รายการ",
-        )
+with tab1:
+    # เรียกใช้ฟังก์ชันดูรายงานผู้ปฏิบัติงาน
+    render_submitted_report(conn, date_options, shift_options, dept_options)
 
-        # กำหนดลำดับแถวใหม่ให้เริ่มจาก 1
-        df_display = df.copy()
-        df_display.index = range(1, len(df_display) + 1)
-
-        # แสดงตารางข้อมูลทั้งหมดทันที
-        st.dataframe(df_display, use_container_width=True)
-
-    else:
-        st.info("ยังไม่มีข้อมูลในระบบ")
-
-except Exception as e:
-    st.warning("ไม่สามารถโหลดข้อมูล Real-time ได้ในขณะนี้")
-
-st.divider()
-
-# ---------------------------------------------------------
-# 6. ส่วนที่ 4: ตรวจสอบรายชื่อผู้ที่ยังไม่ได้บันทึกข้อมูล (เรียกใช้ฟังก์ชัน)
-# ---------------------------------------------------------
-#render_pending_checker(conn, date_options, shift_options)
+with tab2:
+    # เรียกใช้ฟังก์ชันตรวจสอบผู้ยังไม่ได้บันทึกข้อมูล
+    render_pending_checker(conn, date_options, shift_options)
