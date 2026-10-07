@@ -12,11 +12,15 @@ from streamlit_gsheets import GSheetsConnection
 DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1557208748081283132/dwrf0Ah8EkESLkrDtZWnR7dZ6Geg0aAuj_S_72u-DmRJ9f0YVEmox-_3M-jjktSqSKSp"
 
 
+# =========================================================
+# 🛠️ ฟังก์ชันย่อย (Helper Functions)
+# =========================================================
+
 def send_discord_notify(
     record_date, shift, rank_name, position, department, phone, timestamp
 ):
     """ฟังก์ชันส่งข้อความแจ้งเตือนเข้า Discord พร้อมระบบแจ้งเตือนสถานะ"""
-    # 1. เช็กว่าตั้งค่า URL หรือยัง (เช็กกรณีค่าว่าง หรือผู้ใช้ลืมใส่ Webhook จริง)
+    # 1. เช็กว่าตั้งค่า URL หรือยัง
     if not DISCORD_WEBHOOK_URL or DISCORD_WEBHOOK_URL.strip() == "":
         st.warning("⚠️ ยังไม่ได้กำหนด Discord Webhook URL")
         return
@@ -55,7 +59,7 @@ def send_discord_notify(
     try:
         response = requests.post(DISCORD_WEBHOOK_URL, json=payload, timeout=5)
 
-        # ตรวจสอบว่า Discord ได้รับข้อความหรือไม่ (HTTP Status 200 หรือ 204 คือสำเร็จ)
+        # ตรวจสอบว่า Discord ได้รับข้อความหรือไม่
         if response.status_code in [200, 204]:
             st.toast("🔔 ส่งการแจ้งเตือนเข้า Discord เรียบร้อยแล้ว!", icon="💬")
         else:
@@ -66,6 +70,106 @@ def send_discord_notify(
     except Exception as e:
         st.error(f"❌ เกิดข้อผิดพลาดในการเชื่อมต่อ Discord: {e}")
 
+
+def render_pending_checker(conn, date_options, shift_options):
+    """ฟังก์ชันแยกสำหรับดึงและตรวจสอบรายชื่อผู้ยังไม่ได้บันทึกข้อมูล (ทำงานเมื่อกดปุ่มเท่านั้น)"""
+    st.subheader("🔍 ตรวจสอบรายชื่อผู้ที่ยังไม่ได้บันทึกข้อมูล (แยกตามรอบ)")
+
+    chk_col1, chk_col2 = st.columns(2)
+    with chk_col1:
+        check_date = st.selectbox(
+            "เลือกวันที่ต้องการตรวจ", options=date_options, key="chk_d"
+        )
+    with chk_col2:
+        check_shift = st.selectbox(
+            "เลือกรอบที่ต้องการตรวจ", options=shift_options, key="chk_s"
+        )
+
+    # ---------------------------------------------------------
+    # ทำงานเฉพาะเมื่อกดปุ่ม "🔍 ตรวจสอบรายชื่อ" เท่านั้น
+    # ---------------------------------------------------------
+    if st.button("🔍 ตรวจสอบรายชื่อ", type="secondary"):
+        with st.spinner("กำลังดึงข้อมูลและประมวลผล..."):
+            try:
+                # 1. ดึงข้อมูลรายชื่อ MasterList
+                try:
+                    df_master = conn.read(worksheet="MasterList", ttl=0)
+                    master_names = (
+                        df_master["rank_name"].dropna().str.strip().tolist()
+                    )
+                except Exception:
+                    master_names = [
+                        "ร.อ. สมชาย ใจดี",
+                        "ร.ท. สมศักดิ์ มีสุข",
+                        "ร.ต. หญิง สุชาดา รักดี",
+                        "พ.อ.อ. วิชัย มั่นคง",
+                        "จ.อ. พงษ์สิทธิ์ มีมงคล",
+                    ]
+
+                all_master_set = set(master_names)
+
+                # 2. ดึงข้อมูลผู้บันทึกจริง
+                df_records = conn.read(ttl=0)
+
+                submitted_set = set()
+                if not df_records.empty and "rank_name" in df_records.columns:
+                    matched_records = df_records[
+                        (df_records["record_date"] == check_date)
+                        & (df_records["shift"] == check_shift)
+                    ]
+                    submitted_set = set(
+                        matched_records["rank_name"]
+                        .dropna()
+                        .str.strip()
+                        .unique()
+                    )
+
+                # 3. คำนวณรายชื่อค้างส่ง
+                pending_names = sorted(list(all_master_set - submitted_set))
+
+                # 4. แสดงผลลัพธ์
+                st.write("---")
+                col_m1, col_m2, col_m3 = st.columns(3)
+                col_m1.metric("บุคลากรทั้งหมด", f"{len(all_master_set)} คน")
+                col_m2.metric("บันทึกแล้ว", f"{len(submitted_set)} คน")
+                col_m3.metric(
+                    "ยังไม่ได้บันทึก",
+                    f"{len(pending_names)} คน",
+                    delta=f"-{len(pending_names)}" if pending_names else "ครบแล้ว 🎉",
+                )
+
+                progress_val = (
+                    len(submitted_set) / len(all_master_set)
+                    if all_master_set
+                    else 0.0
+                )
+                st.progress(min(progress_val, 1.0))
+
+                if pending_names:
+                    st.warning(
+                        f"⚠️ **รายชื่อผู้ยังไม่ได้บันทึกข้อมูล ({check_date} | {check_shift}):**"
+                    )
+                    df_pending = pd.DataFrame(
+                        {
+                            "ลำดับ": range(1, len(pending_names) + 1),
+                            "ยศ ชื่อ - สกุล": pending_names,
+                        }
+                    )
+                    st.dataframe(
+                        df_pending, use_container_width=True, hide_index=True
+                    )
+                else:
+                    st.success(
+                        f"🎉 บุคลากรทุกคนบันทึกข้อมูลประจำ ({check_date} | {check_shift}) ครบถ้วนแล้ว!"
+                    )
+
+            except Exception as e:
+                st.error(f"เกิดข้อผิดพลาดในการตรวจสอบรายชื่อ: {e}")
+
+
+# =========================================================
+# 🚀 ตัวแอปหลัก (Main Application)
+# =========================================================
 
 # ---------------------------------------------------------
 # 1. ตั้งค่าหน้าตาของแอป
@@ -259,100 +363,9 @@ try:
 except Exception as e:
     st.warning("ไม่สามารถโหลดข้อมูล Real-time ได้ในขณะนี้")
 
+st.divider()
+
 # ---------------------------------------------------------
-# 6. ส่วนที่ 4: ตรวจสอบรายชื่อผู้ที่ยังไม่ได้บันทึกข้อมูล (แยกรายรอบ)
+# 6. ส่วนที่ 4: ตรวจสอบรายชื่อผู้ที่ยังไม่ได้บันทึกข้อมูล (เรียกใช้ฟังก์ชัน)
 # ---------------------------------------------------------
-def render_pending_checker(conn, date_options, shift_options):
-    """ฟังก์ชันแยกสำหรับดึงและตรวจสอบรายชื่อผู้ยังไม่ได้บันทึกข้อมูล (ทำงานเมื่อกดปุ่มเท่านั้น)"""
-    st.subheader("🔍 ตรวจสอบรายชื่อผู้ที่ยังไม่ได้บันทึกข้อมูล (แยกตามรอบ)")
-
-    chk_col1, chk_col2 = st.columns(2)
-    with chk_col1:
-        check_date = st.selectbox(
-            "เลือกวันที่ต้องการตรวจ", options=date_options, key="chk_d"
-        )
-    with chk_col2:
-        check_shift = st.selectbox(
-            "เลือกรอบที่ต้องการตรวจ", options=shift_options, key="chk_s"
-        )
-
-    # ---------------------------------------------------------
-    # ทำงานเฉพาะเมื่อกดปุ่ม "🔍 ตรวจสอบรายชื่อ" เท่านั้น
-    # ---------------------------------------------------------
-    if st.button("🔍 ตรวจสอบรายชื่อ", type="secondary"):
-        with st.spinner("กำลังดึงข้อมูลและประมวลผล..."):
-            try:
-                # 1. ดึงข้อมูลรายชื่อ MasterList
-                try:
-                    df_master = conn.read(worksheet="MasterList", ttl=0)
-                    master_names = (
-                        df_master["rank_name"].dropna().str.strip().tolist()
-                    )
-                except Exception:
-                    master_names = [
-                        "ร.อ. สมชาย ใจดี",
-                        "ร.ท. สมศักดิ์ มีสุข",
-                        "ร.ต. หญิง สุชาดา รักดี",
-                        "พ.อ.อ. วิชัย มั่นคง",
-                        "จ.อ. พงษ์สิทธิ์ มีมงคล",
-                    ]
-
-                all_master_set = set(master_names)
-
-                # 2. ดึงข้อมูลผู้บันทึกจริง
-                df_records = conn.read(ttl=0)
-
-                submitted_set = set()
-                if not df_records.empty and "rank_name" in df_records.columns:
-                    matched_records = df_records[
-                        (df_records["record_date"] == check_date)
-                        & (df_records["shift"] == check_shift)
-                    ]
-                    submitted_set = set(
-                        matched_records["rank_name"]
-                        .dropna()
-                        .str.strip()
-                        .unique()
-                    )
-
-                # 3. คำนวณรายชื่อค้างส่ง
-                pending_names = sorted(list(all_master_set - submitted_set))
-
-                # 4. แสดงผลลัพธ์
-                st.write("---")
-                col_m1, col_m2, col_m3 = st.columns(3)
-                col_m1.metric("บุคลากรทั้งหมด", f"{len(all_master_set)} คน")
-                col_m2.metric("บันทึกแล้ว", f"{len(submitted_set)} คน")
-                col_m3.metric(
-                    "ยังไม่ได้บันทึก",
-                    f"{len(pending_names)} คน",
-                    delta=f"-{len(pending_names)}" if pending_names else "ครบแล้ว 🎉",
-                )
-
-                progress_val = (
-                    len(submitted_set) / len(all_master_set)
-                    if all_master_set
-                    else 0.0
-                )
-                st.progress(min(progress_val, 1.0))
-
-                if pending_names:
-                    st.warning(
-                        f"⚠️ **รายชื่อผู้ยังไม่ได้บันทึกข้อมูล ({check_date} | {check_shift}):**"
-                    )
-                    df_pending = pd.DataFrame(
-                        {
-                            "ลำดับ": range(1, len(pending_names) + 1),
-                            "ยศ ชื่อ - สกุล": pending_names,
-                        }
-                    )
-                    st.dataframe(
-                        df_pending, use_container_width=True, hide_index=True
-                    )
-                else:
-                    st.success(
-                        f"🎉 บุคลากรทุกคนบันทึกข้อมูลประจำ ({check_date} | {check_shift}) ครบถ้วนแล้ว!"
-                    )
-
-            except Exception as e:
-                st.error(f"เกิดข้อผิดพลาดในการตรวจสอบรายชื่อ: {e}")
+render_pending_checker(conn, date_options, shift_options)
