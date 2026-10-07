@@ -34,9 +34,21 @@ rank_name = st.text_input(
 position = st.text_input(
     "ตำแหน่ง", placeholder="เช่น ผบ.กอง, รอง ผอ.กอง, อจ.กอง, หน.ผธก. เป็นต้น"
 )
-department = st.text_input(
-    "สังกัด", placeholder="เช่น กกศ., กทสธ., กนท., ผธก., ผวผ."
-)
+
+# --- ส่วนสังกัด: เปลี่ยนเป็น st.selectbox ---
+dept_options = [
+    "-- กรุณาเลือกสังกัด --",
+    "กกศ.",
+    "กทสธ.",
+    "กนท.",
+    "ผธก.",
+    "ผวผ.",
+    "อื่นๆ"  # สามารถเพิ่ม/ลบ ตัวเลือกสังกัดตามต้องการได้ที่นี่
+]
+
+selected_dept = st.selectbox("สังกัด", options=dept_options)
+# หากยังไม่เลือก ให้ถือว่าค่าสังกัดเป็นค่าว่าง
+department = "" if selected_dept == "-- กรุณาเลือกสังกัด --" else selected_dept
 
 # รับค่าเบอร์โทรศัพท์ (จำกัดไม่เกิน 10 ตัวอักษร)
 phone_raw = st.text_input(
