@@ -16,7 +16,7 @@ def send_discord_notify(rank_name, position, department, phone, timestamp):
     """ฟังก์ชันส่งข้อความแจ้งเตือนเข้า Discord"""
     if (
         not DISCORD_WEBHOOK_URL
-        or "YOUR_WEBHOOK_URL_HERE" in DISCORD_WEBHOOK_URL
+        or "https://discord.com/api/webhooks/1557208748081283132/dwrf0Ah8EkESLkrDtZWnR7dZ6Geg0aAuj_S_72u-DmRJ9f0YVEmox-_3M-jjktSqSKSp" in DISCORD_WEBHOOK_URL
     ):
         return  # ข้ามการส่งถ้ายังไม่ได้ตั้งค่า URL
 
@@ -72,8 +72,21 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 # ---------------------------------------------------------
 # 3. ส่วนที่ 1: ฟอร์มกรอกข้อมูล
 # ---------------------------------------------------------
-st.subheader("1. กรอกข้อมูลส่วนตัว")
+st.subheader("1. กรอกข้อมูลส่วนตัวและเลือกรอบการปฏิบัติงาน")
 
+# --- เลือกวันที่และรอบการปฏิบัติงาน ---
+col_date, col_shift = st.columns(2)
+
+with col_date:
+    # สามารถเปลี่ยนรายการวันเป็นวันที่จริงได้ เช่น ["2026-10-07", "2026-10-08", "2026-10-09"]
+    date_options = ["วันที่ 12 ต.ค.69", "วันที่ 14 ต.ค.69", "วันที่ 15 ต.ค.69"]
+    record_date = st.selectbox("📅 เลือกวันที่ปฏิบัติงานที่บ้าน", options=date_options)
+
+with col_shift:
+    shift_options = ["รอบเช้า (08:00 - 08:15)", "รอบบ่าย (13:00 - 13:15)"]
+    shift = st.selectbox("⏰ เลือกรอบการบันทึก", options=shift_options)
+
+st.write("---")
 rank_name = st.text_input(
     "ยศ ชื่อ - สกุล", placeholder="เช่น ร.อ. สมชาย ใจดี"
 )
@@ -130,12 +143,12 @@ if rank_name or position or department or phone:
     """
     )
 else:
-    st.write("กรุณากรอกข้อมูลและตรวจสอบความถูกต้องก่อนกดยืนยัน")
+    st.write("กรุณาตรวจสอบความถูกต้องของข้อมูลที่ท่านกรอกก่อนกดปุ่มยืนยัน")
 
 # ปุ่มกด Submit ยืนยันบันทึกข้อมูล
 if st.button("🚀 ยืนยันส่งข้อมูล (Submit)", type="primary"):
     if not (rank_name and position and department and phone):
-        st.error("⚠️ กรุณากรอกข้อมูลให้ครบทุกช่องก่อนกดยืนยัน!")
+        st.error("⚠️ กรุณาตรวจสอบความถูกต้องของข้อมูลที่ท่านกรอกก่อนกดปุ่มยืนยัน!")
     elif len(phone_clean) != 10:
         st.error("⚠️ กรุณากรอกหมายเลขโทรศัพท์ให้ถูกต้องครบ 10 หลัก!")
     else:
@@ -149,11 +162,13 @@ if st.button("🚀 ยืนยันส่งข้อมูล (Submit)", type
                 "%Y-%m-%d %H:%M:%S"
             )
 
-            # สร้างข้อมูลแถวใหม่
+           # บันทึกข้อมูลโดยเพิ่มคอลัมน์ record_date และ shift
             new_row = pd.DataFrame(
                 [
                     {
                         "timestamp": current_time,
+                        "record_date": record_date,
+                        "shift": shift,
                         "rank_name": rank_name,
                         "position": position,
                         "department": department,
@@ -169,9 +184,20 @@ if st.button("🚀 ยืนยันส่งข้อมูล (Submit)", type
 
             # อัปเดตกลับไปยัง Google Sheets
             conn.update(data=updated_data)
+            
+            # แจ้งเตือนเข้า Discord
+            send_discord_notify(
+                record_date,
+                shift,
+                rank_name,
+                position,
+                department,
+                phone,
+                current_time,
+            )
 
             st.success(
-                f"✅ บันทึกข้อมูลเรียบร้อยแล้ว! (เวลาที่บันทึก: {current_time})"
+                f"✅ บันทึกข้อมูลเรียบร้อยแล้ว! ({record_date} - {shift})"
             )
             st.balloons()
 
@@ -183,74 +209,125 @@ st.divider()
 # ---------------------------------------------------------
 # 5. ส่วนที่ 3: สรุปข้อมูลแบบ Real-Time
 # ---------------------------------------------------------
-st.subheader("📊 รายงานข้อมูล Real-Time จาก Google Sheets")
+st.subheader("📊 รายงานข้อมูลการบันทึก WFH")
 
 try:
     df = conn.read(ttl=0)
 
-    st.metric(label="จำนวนรายการบันทึกทั้งหมด", value=f"{len(df)} รายการ")
-
     if not df.empty:
-        # ซ่อนคอลัมน์ Index (0, 1, 2, ...) ออกจากหน้าจอ
-        st.dataframe(df, use_container_width=True, hide_index=True)
+        # ตัวกรองข้อมูลบน Dashboard
+        filter_col1, filter_col2 = st.columns(2)
+        with filter_col1:
+            selected_filter_date = st.selectbox(
+                "กรองตามวันที่", options=["ทั้งหมด"] + date_options
+            )
+        with filter_col2:
+            selected_filter_shift = st.selectbox(
+                "กรองตามรอบ", options=["ทั้งหมด"] + shift_options
+            )
+
+        # กรอง DataFrame ตามเงื่อนไขที่เลือก
+        filtered_df = df.copy()
+        if selected_filter_date != "ทั้งหมด":
+            filtered_df = filtered_df[
+                filtered_df["record_date"] == selected_filter_date
+            ]
+        if selected_filter_shift != "ทั้งหมด":
+            filtered_df = filtered_df[
+                filtered_df["shift"] == selected_filter_shift
+            ]
+
+        st.metric(
+            label=f"จำนวนรายการบันทึก ({selected_filter_date} | {selected_filter_shift})",
+            value=f"{len(filtered_df)} รายการ",
+        )
+
+        filtered_df.index = range(1, len(filtered_df) + 1)
+        st.dataframe(filtered_df, use_container_width=True)
+
     else:
         st.info("ยังไม่มีข้อมูลในระบบ")
 
 except Exception as e:
     st.warning("ไม่สามารถโหลดข้อมูล Real-time ได้ในขณะนี้")
 # ---------------------------------------------------------
-# 6. ส่วนที่ 4: ตรวจสอบผู้ที่ยังไม่ได้บันทึกข้อมูล (Comparison Report)
+# 6. ส่วนที่ 4: ตรวจสอบรายชื่อผู้ที่ยังไม่ได้บันทึกข้อมูล (แยกรายรอบ)
 # ---------------------------------------------------------
-st.divider()
-st.subheader("🔍 ตรวจสอบรายชื่อผู้ที่ยังไม่ได้บันทึกข้อมูล")
+st.subheader("🔍 ตรวจสอบรายชื่อผู้ที่ยังไม่ได้บันทึกข้อมูล (แยกตามรอบ)")
+
+# ตัวเลือกรอบวันที่และรอบเวลาที่ต้องการตรวจสอบ
+chk_col1, chk_col2 = st.columns(2)
+with chk_col1:
+    check_date = st.selectbox("เลือกวันที่ต้องการตรวจ", options=date_options, key="chk_d")
+with chk_col2:
+    check_shift = st.selectbox("เลือกรอบที่ต้องการตรวจ", options=shift_options, key="chk_s")
 
 try:
-    # 1. ดึงข้อมูลผู้ที่บันทึกแล้ว
-    df_submitted = conn.read(ttl=0)
+    # 1. ดึงข้อมูลรายชื่อบุคลากรทั้งหมดจาก Sheet ชื่อ 'MasterList' (ถ้ามี)
+    try:
+        df_master = conn.read(worksheet="MasterList", ttl=0)
+        master_names = df_master["rank_name"].dropna().str.strip().tolist()
+    except Exception:
+        # รายชื่อสำรอง กรณีที่ยังไม่ได้สร้าง Sheet 'MasterList'
+        master_names = [
+            "ร.อ. สมชาย ใจดี",
+            "ร.ท. สมศักดิ์ มีสุข",
+            "ร.ต. หญิง สุชาดา รักดี",
+            "พ.อ.อ. วิชัย มั่นคง",
+            "จ.อ. พงษ์สิทธิ์ มีมงคล",
+        ]
 
-    # 2. ดึงรายชื่อบุคลากรทั้งหมดจาก Sheet ชื่อ 'MasterList'
-    df_master = conn.read(worksheet="MasterList", ttl=0)
+    all_master_set = set(master_names)
 
-    if not df_master.empty:
-        # รายชื่อทั้งหมดที่มีในระบบ
-        all_names = set(df_master["rank_name"].dropna().unique())
+    # 2. ดึงข้อมูลผู้บันทึกจาก Sheets
+    df_records = conn.read(ttl=0)
 
-        # รายชื่อคนที่บันทึกข้อมูลแล้ว
-        submitted_names = set()
-        if not df_submitted.empty and "rank_name" in df_submitted.columns:
-            submitted_names = set(df_submitted["rank_name"].dropna().unique())
-
-        # หาคนยังไม่ได้บันทึก (เอาทั้งหมด ลบ คนที่บันทึกแล้ว)
-        pending_names = sorted(list(all_names - submitted_names))
-
-        # แสดงผลสรุปด้วย Metric
-        col1, col2, col3 = st.columns(3)
-        col1.metric("จำนวนบุคลากรทั้งหมด", f"{len(all_names)} คน")
-        col2.metric("บันทึกแล้ว", f"{len(submitted_names)} คน")
-        col3.metric(
-            "ยังไม่ได้บันทึก",
-            f"{len(pending_names)} คน",
-            delta=f"-{len(pending_names)}" if pending_names else "ครบแล้ว 🎉",
+    submitted_set = set()
+    if not df_records.empty and "rank_name" in df_records.columns:
+        # กรองเอาเฉพาะข้อมูลตรงกับวันที่และรอบที่เลือกตรวจ
+        matched_records = df_records[
+            (df_records["record_date"] == check_date)
+            & (df_records["shift"] == check_shift)
+        ]
+        submitted_set = set(
+            matched_records["rank_name"].dropna().str.strip().unique()
         )
 
-        st.progress(
-            len(submitted_names) / len(all_names) if len(all_names) > 0 else 0
+    # 3. คำนวณรายชื่อที่ยังไม่ได้บันทึก
+    pending_names = sorted(list(all_master_set - submitted_set))
+
+    # แสดงผลสถิติภาพรวม
+    col_m1, col_m2, col_m3 = st.columns(3)
+    col_m1.metric("บุคลากรทั้งหมด", f"{len(all_master_set)} คน")
+    col_m2.metric("บันทึกแล้ว", f"{len(submitted_set)} คน")
+    col_m3.metric(
+        "ยังไม่ได้บันทึก",
+        f"{len(pending_names)} คน",
+        delta=f"-{len(pending_names)}" if pending_names else "ครบแล้ว 🎉",
+    )
+
+    # Progress bar ความคืบหน้า
+    progress_val = (
+        len(submitted_set) / len(all_master_set) if all_master_set else 0.0
+    )
+    st.progress(min(progress_val, 1.0))
+
+    # แสดงตารางรายชื่อผู้ที่ยังไม่ได้บันทึก
+    if pending_names:
+        st.warning(
+            f"⚠️ **รายชื่อผู้ยังไม่ได้บันทึกข้อมูล ({check_date} | {check_shift}):**"
         )
-
-        # แสดงตารางรายชื่อผู้ที่ยังไม่ได้บันทึก
-        if pending_names:
-            st.warning("⚠️ **รายชื่อผู้ที่ยังไม่ได้บันทึกข้อมูล:**")
-            df_pending = pd.DataFrame(
-                {"ลำดับ": range(1, len(pending_names) + 1), "ยศ ชื่อ - สกุล": pending_names}
-            )
-            st.dataframe(df_pending, use_container_width=True, hide_index=True)
-        else:
-            st.success("🎉 บุคลากรทุกคนบันทึกข้อมูลครบถ้วนแล้ว!")
-
+        df_pending = pd.DataFrame(
+            {
+                "ลำดับ": range(1, len(pending_names) + 1),
+                "ยศ ชื่อ - สกุล": pending_names,
+            }
+        )
+        st.dataframe(df_pending, use_container_width=True, hide_index=True)
     else:
-        st.info(
-            "💡 ไม่พบข้อมูลในแผ่นงาน MasterList กรุณาเพิ่มรายชื่อบุคลากรทั้งหมดลงใน Sheet ชื่อ 'MasterList'"
+        st.success(
+            f"🎉 บุคลากรทุกคนบันทึกข้อมูลประจำ ({check_date} | {check_shift}) ครบถ้วนแล้ว!"
         )
 
 except Exception as e:
-    st.error(f"เกิดข้อผิดพลาดในการโหลดข้อมูลเปรียบเทียบ: {e}")
+    st.error(f"เกิดข้อผิดพลาดในการตรวจสอบรายชื่อ: {e}")
