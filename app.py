@@ -145,6 +145,8 @@ try:
     st.metric(label="จำนวนรายการบันทึกทั้งหมด", value=f"{len(df)} รายการ")
 
     if not df.empty:
+        # กำหนด Index ให้เริ่มนับที่ 1
+        df.index = range(1, len(df) + 1)
         st.dataframe(df, use_container_width=True)
     else:
         st.info("ยังไม่มีข้อมูลในระบบ")
