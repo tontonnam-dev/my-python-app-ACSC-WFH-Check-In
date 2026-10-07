@@ -198,3 +198,59 @@ try:
 
 except Exception as e:
     st.warning("ไม่สามารถโหลดข้อมูล Real-time ได้ในขณะนี้")
+# ---------------------------------------------------------
+# 6. ส่วนที่ 4: ตรวจสอบผู้ที่ยังไม่ได้บันทึกข้อมูล (Comparison Report)
+# ---------------------------------------------------------
+st.divider()
+st.subheader("🔍 ตรวจสอบรายชื่อผู้ที่ยังไม่ได้บันทึกข้อมูล")
+
+try:
+    # 1. ดึงข้อมูลผู้ที่บันทึกแล้ว
+    df_submitted = conn.read(ttl=0)
+
+    # 2. ดึงรายชื่อบุคลากรทั้งหมดจาก Sheet ชื่อ 'MasterList'
+    df_master = conn.read(worksheet="MasterList", ttl=0)
+
+    if not df_master.empty:
+        # รายชื่อทั้งหมดที่มีในระบบ
+        all_names = set(df_master["rank_name"].dropna().unique())
+
+        # รายชื่อคนที่บันทึกข้อมูลแล้ว
+        submitted_names = set()
+        if not df_submitted.empty and "rank_name" in df_submitted.columns:
+            submitted_names = set(df_submitted["rank_name"].dropna().unique())
+
+        # หาคนยังไม่ได้บันทึก (เอาทั้งหมด ลบ คนที่บันทึกแล้ว)
+        pending_names = sorted(list(all_names - submitted_names))
+
+        # แสดงผลสรุปด้วย Metric
+        col1, col2, col3 = st.columns(3)
+        col1.metric("จำนวนบุคลากรทั้งหมด", f"{len(all_names)} คน")
+        col2.metric("บันทึกแล้ว", f"{len(submitted_names)} คน")
+        col3.metric(
+            "ยังไม่ได้บันทึก",
+            f"{len(pending_names)} คน",
+            delta=f"-{len(pending_names)}" if pending_names else "ครบแล้ว 🎉",
+        )
+
+        st.progress(
+            len(submitted_names) / len(all_names) if len(all_names) > 0 else 0
+        )
+
+        # แสดงตารางรายชื่อผู้ที่ยังไม่ได้บันทึก
+        if pending_names:
+            st.warning("⚠️ **รายชื่อผู้ที่ยังไม่ได้บันทึกข้อมูล:**")
+            df_pending = pd.DataFrame(
+                {"ลำดับ": range(1, len(pending_names) + 1), "ยศ ชื่อ - สกุล": pending_names}
+            )
+            st.dataframe(df_pending, use_container_width=True, hide_index=True)
+        else:
+            st.success("🎉 บุคลากรทุกคนบันทึกข้อมูลครบถ้วนแล้ว!")
+
+    else:
+        st.info(
+            "💡 ไม่พบข้อมูลในแผ่นงาน MasterList กรุณาเพิ่มรายชื่อบุคลากรทั้งหมดลงใน Sheet ชื่อ 'MasterList'"
+        )
+
+except Exception as e:
+    st.error(f"เกิดข้อผิดพลาดในการโหลดข้อมูลเปรียบเทียบ: {e}")
