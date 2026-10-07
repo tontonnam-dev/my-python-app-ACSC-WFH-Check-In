@@ -253,11 +253,13 @@ st.subheader("2. ตรวจสอบข้อมูลก่อนยืนย
 if rank_name or position or department or phone:
     st.info(
         f"""
-    * **ยศ ชื่อ - สกุล:** {rank_name if rank_name else '-'}
-    * **ตำแหน่ง:** {position if position else '-'}
-    * **สังกัด:** {department if department else '-'}
-    * **เบอร์โทรศัพท์:** {phone if phone else '-'}
-    """
+        * **📅 วันที่ปฏิบัติงาน:** {record_date if record_date else '-'}
+        * **⏰ รอบการบันทึก:** {shift if shift else '-'}
+        * **👤 ยศ ชื่อ - สกุล:** {rank_name if rank_name else '-'}
+        * **💼 ตำแหน่ง:** {position if position else '-'}
+        * **🏢 สังกัด:** {department if department else '-'}
+        * **📞 เบอร์โทรศัพท์:** {phone if phone else '-'}
+        """
     )
 else:
     st.write("กรุณาตรวจสอบความถูกต้องของข้อมูลที่ท่านกรอกก่อนกดปุ่มยืนยัน")
