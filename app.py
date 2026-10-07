@@ -408,8 +408,8 @@ tab1, tab2 = st.tabs([
 
 with tab1:
     # เรียกใช้ฟังก์ชันดูรายงานผู้ปฏิบัติงาน
-    render_submitted_report(conn, date_options, shift_options, dept_options)
+    #render_submitted_report(conn, date_options, shift_options, dept_options)
 
 with tab2:
     # เรียกใช้ฟังก์ชันตรวจสอบผู้ยังไม่ได้บันทึกข้อมูล
-    render_pending_checker(conn, date_options, shift_options)
+    #render_pending_checker(conn, date_options, shift_options)
