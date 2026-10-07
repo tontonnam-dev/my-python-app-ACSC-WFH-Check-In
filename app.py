@@ -1,9 +1,55 @@
 import datetime
 import re
 import pandas as pd
-import pytz  # ไลบรารีสำหรับจัดการ Time Zone
+import pytz
+import requests  # ใช้สำหรับส่ง HTTP Request ไปยัง Discord
 import streamlit as st
 from streamlit_gsheets import GSheetsConnection
+
+# ---------------------------------------------------------
+# ตั้งค่า Discord Webhook URL
+# ---------------------------------------------------------
+DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1557208748081283132/dwrf0Ah8EkESLkrDtZWnR7dZ6Geg0aAuj_S_72u-DmRJ9f0YVEmox-_3M-jjktSqSKSp"
+
+
+def send_discord_notify(rank_name, position, department, phone, timestamp):
+    """ฟังก์ชันส่งข้อความแจ้งเตือนเข้า Discord"""
+    if (
+        not DISCORD_WEBHOOK_URL
+        or "YOUR_WEBHOOK_URL_HERE" in DISCORD_WEBHOOK_URL
+    ):
+        return  # ข้ามการส่งถ้ายังไม่ได้ตั้งค่า URL
+
+    # จัดรูปแบบข้อความที่จะส่งไปยัง Discord
+    payload = {
+        "embeds": [
+            {
+                "title": "📝 มีผู้บันทึกข้อมูล Work From Home ใหม่!",
+                "color": 3447003,  # สีน้ำเงิน (Decimal Color Code)
+                "fields": [
+                    {
+                        "name": "👤 ยศ ชื่อ - สกุล",
+                        "value": rank_name,
+                        "inline": True,
+                    },
+                    {"name": "💼 ตำแหน่ง", "value": position, "inline": True},
+                    {"name": "🏢 สังกัด", "value": department, "inline": True},
+                    {"name": "📞 เบอร์โทรศัพท์", "value": phone, "inline": True},
+                    {
+                        "name": "🕒 เวลาบันทึก",
+                        "value": timestamp,
+                        "inline": False,
+                    },
+                ],
+                "footer": {"text": "ระบบบันทึกข้อมูล รร.สธ.ทอ."},
+            }
+        ]
+    }
+
+    try:
+        requests.post(DISCORD_WEBHOOK_URL, json=payload, timeout=5)
+    except Exception as e:
+        print(f"เกิดข้อผิดพลาดในการส่ง Discord Notification: {e}")
 
 # ---------------------------------------------------------
 # 1. ตั้งค่าหน้าตาของแอป
@@ -38,11 +84,11 @@ position = st.text_input(
 # --- ส่วนสังกัด: เปลี่ยนเป็น st.selectbox ---
 dept_options = [
     "-- กรุณาเลือกสังกัด --",
-    "กกศ.",
-    "กทสธ.",
-    "กนท.",
-    "ผธก.",
-    "ผวผ."
+    "กกศ.รร.สธ.ทอ.ยศ.ทอ.",
+    "กทสธ.รร.สธ.ทอ.ยศ.ทอ.",
+    "กนท.รร.สธ.ทอ.ยศ.ทอ.",
+    "ผธก.รร.สธ.ทอ.ยศ.ทอ.",
+    "ผวผ.รร.สธ.ทอ.ยศ.ทอ."
      # สามารถเพิ่ม/ลบ ตัวเลือกสังกัดตามต้องการได้ที่นี่
 ]
 
@@ -145,9 +191,8 @@ try:
     st.metric(label="จำนวนรายการบันทึกทั้งหมด", value=f"{len(df)} รายการ")
 
     if not df.empty:
-        # กำหนด Index ให้เริ่มนับที่ 1
-        df.index = range(1, len(df) + 1)
-        st.dataframe(df, use_container_width=True)
+        # ซ่อนคอลัมน์ Index (0, 1, 2, ...) ออกจากหน้าจอ
+        st.dataframe(df, use_container_width=True, hide_index=True)
     else:
         st.info("ยังไม่มีข้อมูลในระบบ")
 
