@@ -2,7 +2,7 @@ import datetime
 import re
 import pandas as pd
 import pytz
-import requests  # ใช้สำหรับส่ง HTTP Request ไปยัง Discord
+import requests
 import streamlit as st
 from streamlit_gsheets import GSheetsConnection
 
@@ -12,20 +12,21 @@ from streamlit_gsheets import GSheetsConnection
 DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1557208748081283132/dwrf0Ah8EkESLkrDtZWnR7dZ6Geg0aAuj_S_72u-DmRJ9f0YVEmox-_3M-jjktSqSKSp"
 
 
-def send_discord_notify(record_date, shift, rank_name, position, department, phone, timestamp):
-    """ฟังก์ชันส่งข้อความแจ้งเตือนเข้า Discord"""
-    if (
-        not DISCORD_WEBHOOK_URL
-        or "https://discord.com/api/webhooks/1557208748081283132/dwrf0Ah8EkESLkrDtZWnR7dZ6Geg0aAuj_S_72u-DmRJ9f0YVEmox-_3M-jjktSqSKSp" in DISCORD_WEBHOOK_URL
-    ):
-        return  # ข้ามการส่งถ้ายังไม่ได้ตั้งค่า URL
+def send_discord_notify(
+    record_date, shift, rank_name, position, department, phone, timestamp
+):
+    """ฟังก์ชันส่งข้อความแจ้งเตือนเข้า Discord พร้อมระบบแจ้งเตือนสถานะ"""
+    # 1. เช็กว่าตั้งค่า URL หรือยัง (เช็กกรณีค่าว่าง หรือผู้ใช้ลืมใส่ Webhook จริง)
+    if not DISCORD_WEBHOOK_URL or DISCORD_WEBHOOK_URL.strip() == "":
+        st.warning("⚠️ ยังไม่ได้กำหนด Discord Webhook URL")
+        return
 
     # จัดรูปแบบข้อความที่จะส่งไปยัง Discord
     payload = {
         "embeds": [
             {
                 "title": f"📝 บันทึกข้อมูล WFH ({record_date} - {shift})",
-                "color": 3447003,
+                "color": 3447003,  # สีน้ำเงิน
                 "fields": [
                     {
                         "name": "📅 วันที่ / รอบ",
@@ -52,9 +53,19 @@ def send_discord_notify(record_date, shift, rank_name, position, department, pho
     }
 
     try:
-        requests.post(DISCORD_WEBHOOK_URL, json=payload, timeout=5)
+        response = requests.post(DISCORD_WEBHOOK_URL, json=payload, timeout=5)
+
+        # ตรวจสอบว่า Discord ได้รับข้อความหรือไม่ (HTTP Status 200 หรือ 204 คือสำเร็จ)
+        if response.status_code in [200, 204]:
+            st.toast("🔔 ส่งการแจ้งเตือนเข้า Discord เรียบร้อยแล้ว!", icon="💬")
+        else:
+            st.error(
+                f"❌ ไม่สามารถส่งข้อความเข้า Discord ได้ (Status Code: {response.status_code})\nรายละเอียด: {response.text}"
+            )
+
     except Exception as e:
-        print(f"Error sending Discord notification: {e}")
+        st.error(f"❌ เกิดข้อผิดพลาดในการเชื่อมต่อ Discord: {e}")
+
 
 # ---------------------------------------------------------
 # 1. ตั้งค่าหน้าตาของแอป
@@ -62,13 +73,15 @@ def send_discord_notify(record_date, shift, rank_name, position, department, pho
 st.set_page_config(
     page_title="ระบบบันทึกข้อมูลบุคลากร รร.สธ.ทอ.",
     page_icon="📝",
-    layout="centered"
+    layout="centered",
 )
 
 # ---------------------------------------------------------
 # 2. ส่วนหัวเรื่อง
 # ---------------------------------------------------------
-st.title("📝 ระบบบันทึกข้อมูลผู้ที่ปฏิบัติงานที่บ้าน (Work From Home) รร.สธ.ทอ.ยศ.ทอ.")
+st.title(
+    "📝 ระบบบันทึกข้อมูลผู้ที่ปฏิบัติงานที่บ้าน (Work From Home) รร.สธ.ทอ.ยศ.ทอ."
+)
 st.caption("เชื่อมต่อข้อมูลตรงกับ Google Sheets (เวลาประเทศไทย UTC+7)")
 
 # เชื่อมต่อกับ Google Sheets
@@ -83,51 +96,46 @@ st.subheader("1. กรอกข้อมูลส่วนตัวและเ
 col_date, col_shift = st.columns(2)
 
 with col_date:
-    # สามารถเปลี่ยนรายการวันเป็นวันที่จริงได้ เช่น ["2026-10-07", "2026-10-08", "2026-10-09"]
     date_options = ["วันที่ 12 ต.ค.69", "วันที่ 14 ต.ค.69", "วันที่ 15 ต.ค.69"]
-    record_date = st.selectbox("📅 เลือกวันที่ปฏิบัติงานที่บ้าน", options=date_options)
+    record_date = st.selectbox(
+        "📅 เลือกวันที่ปฏิบัติงานที่บ้าน", options=date_options
+    )
 
 with col_shift:
     shift_options = ["รอบเช้า (08:00 - 08:15)", "รอบบ่าย (13:00 - 13:15)"]
     shift = st.selectbox("⏰ เลือกรอบการบันทึก", options=shift_options)
 
 st.write("---")
-rank_name = st.text_input(
-    "ยศ ชื่อ - สกุล", placeholder="เช่น ร.อ. สมชาย ใจดี"
-)
+rank_name = st.text_input("ยศ ชื่อ - สกุล", placeholder="เช่น ร.อ. สมชาย ใจดี")
 position = st.text_input(
     "ตำแหน่ง", placeholder="เช่น ผบ.กอง, รอง ผอ.กอง, อจ.กอง, หน.ผธก. เป็นต้น"
 )
 
-# --- ส่วนสังกัด: เปลี่ยนเป็น st.selectbox ---
+# --- ส่วนสังกัด ---
 dept_options = [
     "-- กรุณาเลือกสังกัด --",
     "กกศ.รร.สธ.ทอ.ยศ.ทอ.",
     "กทสธ.รร.สธ.ทอ.ยศ.ทอ.",
     "กนท.รร.สธ.ทอ.ยศ.ทอ.",
     "ผธก.รร.สธ.ทอ.ยศ.ทอ.",
-    "ผวผ.รร.สธ.ทอ.ยศ.ทอ."
-     # สามารถเพิ่ม/ลบ ตัวเลือกสังกัดตามต้องการได้ที่นี่
+    "ผวผ.รร.สธ.ทอ.ยศ.ทอ.",
 ]
 
 selected_dept = st.selectbox("สังกัด", options=dept_options)
-# หากยังไม่เลือก ให้ถือว่าค่าสังกัดเป็นค่าว่าง
 department = "" if selected_dept == "-- กรุณาเลือกสังกัด --" else selected_dept
 
-# รับค่าเบอร์โทรศัพท์ (จำกัดไม่เกิน 10 ตัวอักษร)
+# รับค่าเบอร์โทรศัพท์
 phone_raw = st.text_input(
     "หมายเลขโทรศัพท์ที่ติดต่อได้", placeholder="เช่น 0812345678", max_chars=10
 )
 
-# ลบตัวอักษรที่ไม่ใช่ตัวเลขออก
 phone_clean = re.sub(r"\D", "", phone_raw)
 
-# จัดฟอร์แมตเบอร์โทรศัพท์เมื่อพิมพ์ครบ 10 หลัก (0XX-XXX-XXXX)
 if len(phone_clean) == 10:
     phone = re.sub(r"(\d{3})(\d{3})(\d{4})", r"\1-\2-\3", phone_clean)
     st.caption(f"📱 เบอร์โทรศัพท์ที่บันทึก: **{phone}**")
 else:
-    phone = phone_clean  # กรณีพิมพ์ยังไม่ครบ 10 หลัก ให้เก็บค่าเดิมไว้ก่อน
+    phone = phone_clean
     if phone_clean:
         st.caption("⚠️ กรุณากรอกตัวเลขให้ครบ 10 หลัก")
 
@@ -153,7 +161,9 @@ else:
 # ปุ่มกด Submit ยืนยันบันทึกข้อมูล
 if st.button("🚀 ยืนยันส่งข้อมูล (Submit)", type="primary"):
     if not (rank_name and position and department and phone):
-        st.error("⚠️ กรุณาตรวจสอบความถูกต้องของข้อมูลที่ท่านกรอกก่อนกดปุ่มยืนยัน!")
+        st.error(
+            "⚠️ กรุณาตรวจสอบความถูกต้องของข้อมูลที่ท่านกรอกก่อนกดปุ่มยืนยัน!"
+        )
     elif len(phone_clean) != 10:
         st.error("⚠️ กรุณากรอกหมายเลขโทรศัพท์ให้ถูกต้องครบ 10 หลัก!")
     else:
@@ -167,7 +177,7 @@ if st.button("🚀 ยืนยันส่งข้อมูล (Submit)", type
                 "%Y-%m-%d %H:%M:%S"
             )
 
-           # บันทึกข้อมูลโดยเพิ่มคอลัมน์ record_date และ shift
+            # บันทึกข้อมูล
             new_row = pd.DataFrame(
                 [
                     {
@@ -182,15 +192,15 @@ if st.button("🚀 ยืนยันส่งข้อมูล (Submit)", type
                 ]
             )
 
-            # รวมข้อมูลใหม่เข้ากับข้อมูลเดิม
-            updated_data = pd.concat(
-                [existing_data, new_row], ignore_index=True
-            )
-
-            # อัปเดตกลับไปยัง Google Sheets
+            updated_data = pd.concat([existing_data, new_row], ignore_index=True)
             conn.update(data=updated_data)
-            
-            # แจ้งเตือนเข้า Discord
+
+            st.success(
+                f"✅ บันทึกข้อมูลเรียบร้อยแล้ว! ({record_date} - {shift})"
+            )
+            st.balloons()
+
+            # --- เรียกส่งข้อมูลไปยัง Discord ---
             send_discord_notify(
                 record_date,
                 shift,
@@ -200,11 +210,6 @@ if st.button("🚀 ยืนยันส่งข้อมูล (Submit)", type
                 phone,
                 current_time,
             )
-
-            st.success(
-                f"✅ บันทึกข้อมูลเรียบร้อยแล้ว! ({record_date} - {shift})"
-            )
-            st.balloons()
 
         except Exception as e:
             st.error(f"เกิดข้อผิดพลาดในการบันทึกข้อมูล: {e}")
@@ -220,7 +225,6 @@ try:
     df = conn.read(ttl=0)
 
     if not df.empty:
-        # ตัวกรองข้อมูลบน Dashboard
         filter_col1, filter_col2 = st.columns(2)
         with filter_col1:
             selected_filter_date = st.selectbox(
@@ -231,7 +235,6 @@ try:
                 "กรองตามรอบ", options=["ทั้งหมด"] + shift_options
             )
 
-        # กรอง DataFrame ตามเงื่อนไขที่เลือก
         filtered_df = df.copy()
         if selected_filter_date != "ทั้งหมด":
             filtered_df = filtered_df[
@@ -255,25 +258,27 @@ try:
 
 except Exception as e:
     st.warning("ไม่สามารถโหลดข้อมูล Real-time ได้ในขณะนี้")
+
 # ---------------------------------------------------------
 # 6. ส่วนที่ 4: ตรวจสอบรายชื่อผู้ที่ยังไม่ได้บันทึกข้อมูล (แยกรายรอบ)
 # ---------------------------------------------------------
 st.subheader("🔍 ตรวจสอบรายชื่อผู้ที่ยังไม่ได้บันทึกข้อมูล (แยกตามรอบ)")
 
-# ตัวเลือกรอบวันที่และรอบเวลาที่ต้องการตรวจสอบ
 chk_col1, chk_col2 = st.columns(2)
 with chk_col1:
-    check_date = st.selectbox("เลือกวันที่ต้องการตรวจ", options=date_options, key="chk_d")
+    check_date = st.selectbox(
+        "เลือกวันที่ต้องการตรวจ", options=date_options, key="chk_d"
+    )
 with chk_col2:
-    check_shift = st.selectbox("เลือกรอบที่ต้องการตรวจ", options=shift_options, key="chk_s")
+    check_shift = st.selectbox(
+        "เลือกรอบที่ต้องการตรวจ", options=shift_options, key="chk_s"
+    )
 
 try:
-    # 1. ดึงข้อมูลรายชื่อบุคลากรทั้งหมดจาก Sheet ชื่อ 'MasterList' (ถ้ามี)
     try:
         df_master = conn.read(worksheet="MasterList", ttl=0)
         master_names = df_master["rank_name"].dropna().str.strip().tolist()
     except Exception:
-        # รายชื่อสำรอง กรณีที่ยังไม่ได้สร้าง Sheet 'MasterList'
         master_names = [
             "ร.อ. สมชาย ใจดี",
             "ร.ท. สมศักดิ์ มีสุข",
@@ -283,13 +288,10 @@ try:
         ]
 
     all_master_set = set(master_names)
-
-    # 2. ดึงข้อมูลผู้บันทึกจาก Sheets
     df_records = conn.read(ttl=0)
 
     submitted_set = set()
     if not df_records.empty and "rank_name" in df_records.columns:
-        # กรองเอาเฉพาะข้อมูลตรงกับวันที่และรอบที่เลือกตรวจ
         matched_records = df_records[
             (df_records["record_date"] == check_date)
             & (df_records["shift"] == check_shift)
@@ -298,10 +300,8 @@ try:
             matched_records["rank_name"].dropna().str.strip().unique()
         )
 
-    # 3. คำนวณรายชื่อที่ยังไม่ได้บันทึก
     pending_names = sorted(list(all_master_set - submitted_set))
 
-    # แสดงผลสถิติภาพรวม
     col_m1, col_m2, col_m3 = st.columns(3)
     col_m1.metric("บุคลากรทั้งหมด", f"{len(all_master_set)} คน")
     col_m2.metric("บันทึกแล้ว", f"{len(submitted_set)} คน")
@@ -311,13 +311,11 @@ try:
         delta=f"-{len(pending_names)}" if pending_names else "ครบแล้ว 🎉",
     )
 
-    # Progress bar ความคืบหน้า
     progress_val = (
         len(submitted_set) / len(all_master_set) if all_master_set else 0.0
     )
     st.progress(min(progress_val, 1.0))
 
-    # แสดงตารางรายชื่อผู้ที่ยังไม่ได้บันทึก
     if pending_names:
         st.warning(
             f"⚠️ **รายชื่อผู้ยังไม่ได้บันทึกข้อมูล ({check_date} | {check_shift}):**"
