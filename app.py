@@ -71,7 +71,7 @@ def send_discord_notify(
         st.error(f"❌ เกิดข้อผิดพลาดในการเชื่อมต่อ Discord: {e}")
 
 
-def render_pending_checker(conn, date_options, shift_options):
+#def render_pending_checker(conn, date_options, shift_options):
     """ฟังก์ชันแยกสำหรับดึงและตรวจสอบรายชื่อผู้ยังไม่ได้บันทึกข้อมูล (ทำงานเมื่อกดปุ่มเท่านั้น)"""
     st.subheader("🔍 ตรวจสอบรายชื่อผู้ที่ยังไม่ได้บันทึกข้อมูล (แยกตามรอบ)")
 
@@ -355,4 +355,4 @@ st.divider()
 # ---------------------------------------------------------
 # 6. ส่วนที่ 4: ตรวจสอบรายชื่อผู้ที่ยังไม่ได้บันทึกข้อมูล (เรียกใช้ฟังก์ชัน)
 # ---------------------------------------------------------
-render_pending_checker(conn, date_options, shift_options)
+#render_pending_checker(conn, date_options, shift_options)
