@@ -9,7 +9,7 @@ from streamlit_gsheets import GSheetsConnection
 # ---------------------------------------------------------
 # ตั้งค่า Discord Webhook URL
 # ---------------------------------------------------------
-DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1557208748081283132/dwrf0Ah8EkESLkrDtZWnR7dZ6Geg0aAuj_S_72u-DmRJ9f0YVEmox-_3M-jjktSqSKSp"
+DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1557319102630989855/E1NtZ-brNI-rVb4I7eSdChe072I62UyuOkxyv4aW8wIyd0GNwgday8qWlrXYNAWt9yX1"
 
 
 # =========================================================
