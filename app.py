@@ -1,6 +1,5 @@
 import datetime
 import re
-import time
 import pandas as pd
 import pytz
 import requests
@@ -8,9 +7,12 @@ import streamlit as st
 from streamlit_gsheets import GSheetsConnection
 
 # ---------------------------------------------------------
-# ตั้งค่า Discord Webhook URL
+# ตั้งค่า URL ต่างๆ
 # ---------------------------------------------------------
 DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1557319102630989855/E1NtZ-brNI-rVb4I7eSdChe072I62UyuOkxyv4aW8wIyd0GNwgday8qWlrXYNAWt9yX1"
+
+# 🔴 [สำคัญ] นำ URL ของ Google Apps Script Web App ที่ได้จากการ Deploy มาใส่ที่นี่
+GOOGLE_WEB_APP_URL = "https://script.google.com/macros/s/AKfycby8br03zjMvjQhF0SImHqk7SXy05iHIdFz13yF1Cwd_d3fFrXl1hnv6Lw5AxSpn4cP-1g/exec"
 
 
 # =========================================================
@@ -67,26 +69,24 @@ def send_discord_notify(
         st.error(f"❌ เกิดข้อผิดพลาดในการเชื่อมต่อ Discord: {e}")
 
 
-def save_data_with_retry(conn, new_row, max_retries=3):
-    """ฟังก์ชันบันทึกข้อมูลลง Google Sheets พร้อมระบบ Retry ป้องกัน Concurrency Error"""
-    for attempt in range(max_retries):
-        try:
-            # ดึงข้อมูลล่าสุด ณ จังหวะที่จะบันทึก เพื่อป้องกันข้อมูลทับซ้อน
-            existing_data = conn.read(ttl=0)
-            if existing_data is None or existing_data.empty:
-                updated_data = new_row
-            else:
-                updated_data = pd.concat([existing_data, new_row], ignore_index=True)
-            
-            # อัปเดตข้อมูลกลับไปที่ Google Sheets
-            conn.update(data=updated_data)
+def save_data_via_webapp(new_row_dict):
+    """ส่งข้อมูลผ่าน Google Apps Script Web App (แก้ปัญหา Concurrency และ Error 429)"""
+    if not GOOGLE_WEB_APP_URL or "YOUR_SCRIPT_ID_HERE" in GOOGLE_WEB_APP_URL:
+        st.error("❌ ยังไม่ได้กำหนด GOOGLE_WEB_APP_URL ให้ถูกต้อง")
+        return False
+
+    try:
+        response = requests.post(GOOGLE_WEB_APP_URL, json=new_row_dict, timeout=10)
+        result = response.json()
+        
+        if result.get("status") == "success":
             return True
-        except Exception as e:
-            if attempt == max_retries - 1:
-                st.error(f"❌ ไม่สามารถบันทึกข้อมูลลง Google Sheets ได้หลังจากพยายามหลายครั้ง (Error: {e})")
-                return False
-            time.sleep(2 ** attempt)  # เว้นระยะรอก่อนลองใหม่ (Exponential backoff)
-    return False
+        else:
+            st.error(f"❌ เกิดข้อผิดพลาดจาก Google Sheets: {result.get('message')}")
+            return False
+    except Exception as e:
+        st.error(f"❌ ไม่สามารถเชื่อมต่อกับ Web App ได้: {e}")
+        return False
 
 
 # =========================================================
@@ -104,9 +104,9 @@ st.set_page_config(
 st.title(
     "📝 ระบบบันทึกข้อมูลผู้ที่ปฏิบัติงานที่บ้าน (Work From Home) รร.สธ.ทอ.ยศ.ทอ."
 )
-st.caption("เชื่อมต่อข้อมูลตรงกับ Google Sheets (เวลาประเทศไทย UTC+7)")
+st.caption("เชื่อมต่อข้อมูลผ่าน Google Apps Script Web App (เวลาประเทศไทย UTC+7)")
 
-# เชื่อมต่อกับ Google Sheets
+# เชื่อมต่อกับ Google Sheets เฉพาะสำหรับการ "อ่านข้อมูล" (แสดงตาราง/รายงาน)
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 # ---------------------------------------------------------
@@ -177,23 +177,19 @@ if submitted:
                 "%Y-%m-%d %H:%M:%S"
             )
 
-            # สร้าง DataFrame แถวใหม่
-            new_row = pd.DataFrame(
-                [
-                    {
-                        "timestamp": current_time,
-                        "record_date": record_date,
-                        "shift": shift,
-                        "rank_name": rank_name,
-                        "position": position,
-                        "department": department,
-                        "phone": phone,
-                    }
-                ]
-            )
+            # รวบรวมข้อมูลเป็น Dictionary เพื่อส่งผ่าน Web App
+            row_data = {
+                "timestamp": current_time,
+                "record_date": record_date,
+                "shift": shift,
+                "rank_name": rank_name,
+                "position": position,
+                "department": department,
+                "phone": phone,
+            }
 
-            # บันทึกข้อมูลผ่านฟังก์ชัน Retry ป้องกัน Error
-            success = save_data_with_retry(conn, new_row)
+            # ส่งข้อมูลผ่าน Google Apps Script Web App
+            success = save_data_via_webapp(row_data)
 
             if success:
                 st.success(f"✅ บันทึกข้อมูลเรียบร้อยแล้ว! ({record_date} - {shift})")
@@ -213,7 +209,7 @@ if submitted:
 st.divider()
 
 # ---------------------------------------------------------
-# 4. ส่วนสรุปข้อมูลแบบ Real-Time
+# 4. ส่วนสรุปข้อมูลแบบ Real-Time (ยังคงใช้ conn.read อ่านข้อมูลมาแสดงผลได้ปกติ)
 # ---------------------------------------------------------
 st.subheader("📊 รายงานข้อมูลการบันทึก WFH")
 
