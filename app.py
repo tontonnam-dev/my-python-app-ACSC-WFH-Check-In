@@ -179,9 +179,9 @@ if submitted:
 
             # รวบรวมข้อมูลเป็น Dictionary เพื่อส่งผ่าน Web App
             row_data = {
-                "timestamp": current_time,
                 "record_date": record_date,
                 "shift": shift,
+                "timestamp": current_time,
                 "rank_name": rank_name,
                 "position": position,
                 "department": department,
