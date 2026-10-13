@@ -168,7 +168,7 @@ if submitted:
     elif len(phone_clean) != 10:
         st.error("⚠️ กรุณากรอกหมายเลขโทรศัพท์ให้ถูกต้องครบ 10 หลัก!")
     elif allow_start and allow_end and not (allow_start <= now <= allow_end):
-        st.error(f"⚠️ ไม่สามารถส่งข้อมูลได้ เนื่องจากอยู่นอกเวลาที่กำหนดสำหรับ {shift} (เวลาปัจจุบัน: {now.strftime('%H:%M:%S')})")
+        st.error(f"⚠️ ไม่สามารถบันทึกข้อมูลได้ เนื่องจากอยู่นอกเวลาที่กำหนดสำหรับ {shift} (เวลาปัจจุบัน: {now.strftime('%H:%M:%S')})")
     else:
         with st.spinner("กำลังบันทึกข้อมูลลงระบบ..."):
             current_time_str = now.strftime("%Y-%m-%d %H:%M:%S")
