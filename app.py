@@ -15,6 +15,17 @@ GOOGLE_WEB_APP_URL = "https://script.google.com/macros/s/AKfycby8br03zjMvjQhF0SI
 # =========================================================
 # 🛠️ ฟังก์ชันย่อย (Helper Functions)
 # =========================================================
+@st.dialog("⚠️ แจ้งเตือนการส่งข้อมูลนอกเวลา")
+def show_time_warning_dialog(shift_name, current_time, start_str, end_str):
+    """ฟังก์ชันแสดง Pop-up แจ้งเตือนเมื่อกดส่งนอกเวลา"""
+    st.error(f"ไม่สามารถบันทึกข้อมูลสำหรับ **{shift_name}** ได้ในขณะนี้")
+    st.write(f"🕒 **เวลาปัจจุบันในระบบ:** `{current_time}`")
+    st.write(f"📌 **ช่วงเวลาที่เปิดให้ส่ง:** `{start_str} - {end_str} น.`")
+    st.info("โปรดกลับมาทำรายการใหม่อีกครั้งในช่วงเวลาที่กำหนดครับ")
+    
+    if st.button("รับทราบ / ปิดหน้าต่าง", type="primary", use_container_width=True):
+        st.rerun()
+
 def send_discord_notify(record_date, shift, rank_name, position, department, phone, timestamp):
     """ฟังก์ชันส่งข้อความแจ้งเตือนเข้า Discord พร้อมระบบแจ้งเตือนสถานะ"""
     if not DISCORD_WEBHOOK_URL or DISCORD_WEBHOOK_URL.strip() == "":
@@ -168,7 +179,13 @@ if submitted:
     elif len(phone_clean) != 10:
         st.error("⚠️ กรุณากรอกหมายเลขโทรศัพท์ให้ถูกต้องครบ 10 หลัก!")
     elif allow_start and allow_end and not (allow_start <= now <= allow_end):
-        st.error(f"⚠️ ไม่สามารถบันทึกข้อมูลได้ เนื่องจากอยู่นอกเวลาที่กำหนดสำหรับ {shift} (เวลาปัจจุบัน: {now.strftime('%H:%M:%S')})")
+        # เรียกแสดง Pop-up แจ้งเตือนเมื่ออยู่นอกเวลา
+        show_time_warning_dialog(
+            shift_name=shift,
+            current_time=now.strftime('%H:%M:%S'),
+            start_str=allow_start.strftime('%H:%M'),
+            end_str=allow_end.strftime('%H:%M')
+        )
     else:
         with st.spinner("กำลังบันทึกข้อมูลลงระบบ..."):
             current_time_str = now.strftime("%Y-%m-%d %H:%M:%S")
