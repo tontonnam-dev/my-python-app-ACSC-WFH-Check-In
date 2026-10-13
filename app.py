@@ -77,8 +77,19 @@ st.set_page_config(
 )
 
 # 2. ส่วนหัวเรื่อง
-st.title("📝 ระบบบันทึกข้อมูลผู้ที่ปฏิบัติงานที่บ้าน (Work From Home) รร.สธ.ทอ.ยศ.ทอ.")
+st.title("📝 ระบบบันทึกข้อมูล\n\n"
+         "ผู้ที่ปฏิบัติงานที่บ้าน (Work From Home)\n\n"
+         "รร.สธ.ทอ.ยศ.ทอ.")
 st.caption("เชื่อมต่อข้อมูลผ่าน Google Apps Script Web App (เวลาประเทศไทย UTC+7)")
+
+# --- ส่วนแสดงเวลาปัจจุบันตามเวลาประเทศไทย ---
+tz_bangkok = pytz.timezone("Asia/Bangkok")
+now_bangkok = datetime.datetime.now(tz_bangkok)
+
+st.markdown(
+    f"🕒 **เวลาปัจจุบันในระบบ (ประเทศไทย):** `{now_bangkok.strftime('%d %b %Y, เวลา %H:%M:%S น.')}`"
+)
+st.write("---")
 
 # เชื่อมต่อกับ Google Sheets เฉพาะสำหรับการ "อ่านข้อมูล" (แสดงตาราง/รายงาน)
 conn = st.connection("gsheets", type=GSheetsConnection)
@@ -91,8 +102,8 @@ st.subheader("1. กรอกข้อมูลส่วนตัวและเ
 # ℹ️ เพิ่มกล่องข้อความแจ้งเตือนช่วงเวลาการกรอกข้อมูลให้ผู้ใช้งานเห็นชัดเจน
 st.info(
     "📌 **กำหนดการบันทึกข้อมูลของผู้ที่ปฏิบัติงานที่บ้าน:**\n\n"
-    "• **รอบเช้า:** เปิดให้กดส่งข้อมูลเวลา **08:00 - 08:15 น.**\n\n"
-    "• **รอบบ่าย:** เปิดให้กดส่งข้อมูลเวลา **13:00 - 13:15 น.**\n\n"
+    "• **รอบเช้า:** เปิดให้กดส่งข้อมูลเวลา **08:00 - 08:30 น.**\n\n"
+    "• **รอบบ่าย:** เปิดให้กดส่งข้อมูลเวลา **13:00 - 13:30 น.**\n\n"
     "*(โปรดเข้ามาทำรายการในช่วงเวลาดังกล่าว)*"
 )
 with st.form("wfh_submission_form", clear_on_submit=False):
@@ -102,7 +113,7 @@ with st.form("wfh_submission_form", clear_on_submit=False):
         record_date = st.selectbox("📅 เลือกวันที่ปฏิบัติงานที่บ้าน", options=date_options)
         
     with col_shift:
-        shift_options = ["รอบเช้า (08:00 - 08:15)", "รอบบ่าย (13:00 - 13:15)"]
+        shift_options = ["รอบเช้า (08:00 - 08:30)", "รอบบ่าย (13:00 - 13:30)"]
         shift = st.selectbox("⏰ เลือกรอบการบันทึก", options=shift_options)
 
     st.write("---")
