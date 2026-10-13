@@ -118,7 +118,7 @@ with st.form("wfh_submission_form", clear_on_submit=False):
     col_date, col_shift = st.columns(2)
 
     with col_date:
-        date_options = ["วันที่ 12 ต.ค.69", "วันที่ 14 ต.ค.69", "วันที่ 15 ต.ค.69"]
+        date_options = ["วันที่ 14 ต.ค.69", "วันที่ 15 ต.ค.69"]
         record_date = st.selectbox(
             "📅 เลือกวันที่ปฏิบัติงานที่บ้าน", options=date_options
         )
