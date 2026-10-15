@@ -9,7 +9,7 @@ from streamlit_gsheets import GSheetsConnection
 # ---------------------------------------------------------
 # ตั้งค่า URL ต่างๆ
 # ---------------------------------------------------------
-DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1559605688408215632/zOGleprcIbCMVc157CIpna0-5SamZg244rUGoGfE2yDXgn8uVI310gQne_QbTAkAFp7N"
+DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1560123663708196895/nrhvtTs9PHloQWxf_inFwN6vLIBgY9OVv7kwNXk-Z1_G-akRiw9DflEd6v0X8WusE-yc"
 GOOGLE_WEB_APP_URL = "https://script.google.com/macros/s/AKfycby8br03zjMvjQhF0SImHqk7SXy05iHIdFz13yF1Cwd_d3fFrXl1hnv6Lw5AxSpn4cP-1g/exec"
 
 # =========================================================
